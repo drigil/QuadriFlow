@@ -5,6 +5,7 @@
 #include <queue>
 #include <unordered_map>
 #include <vector>
+#include <iostream>
 
 namespace qflow {
 
@@ -237,11 +238,14 @@ void Parametrizer::AdvancedExtractQuad() {
     auto& Q = hierarchy.mQ[0];
     auto& N = hierarchy.mN[0];
     int num_v = disajoint_tree.CompactNum();
+    std::cout << "num_v is - " << num_v << " O Shape is - " << O.rows() << " " << O.cols() << " V shape is " << V.rows() << " " << V.cols() << " mV is - " << hierarchy.mV[0].rows() << " " << hierarchy.mV[0].cols() << std::endl;
+
     Vset.resize(num_v);
     O_compact.resize(num_v, Vector3d::Zero());
     Q_compact.resize(num_v, Vector3d::Zero());
     N_compact.resize(num_v, Vector3d::Zero());
     counter.resize(num_v, 0);
+
     for (int i = 0; i < O.cols(); ++i) {
         int compact_v = disajoint_tree.Index(i);
         Vset[compact_v].push_back(i);
@@ -261,7 +265,10 @@ void Parametrizer::AdvancedExtractQuad() {
         O_compact[i] /= counter[i];
     }
 
+
+    std::cout << "Vset before triangle manifold " << Vset.size() << std::endl;
     BuildTriangleManifold(disajoint_tree, edge, face, edge_values, F2E, E2F, EdgeDiff, FQ);
+    std::cout << "Vset after triangle manifold " << Vset.size() << std::endl;
 }
 
 void Parametrizer::BuildTriangleManifold(DisajointTree& disajoint_tree, std::vector<int>& edge,

@@ -46,7 +46,7 @@ class Hierarchy {
     double mScale;
     int rng_seed;
 
-    MatrixXi mF;    // mF(i, j) i \in [0, 3) ith index in face j
+    MatrixXi mF;    // mF(i, j) i \in [0, 3) ith index in face j, Initial Faces
     VectorXi mE2E;  // inverse edge
     std::vector<AdjacentMatrix> mAdj;
     std::vector<MatrixXd> mV;
@@ -54,8 +54,8 @@ class Hierarchy {
     std::vector<VectorXd> mA;
     std::vector<std::vector<std::vector<int>>> mPhases;
     // parameters
-    std::vector<MatrixXd> mQ;
-    std::vector<MatrixXd> mO;
+    std::vector<MatrixXd> mQ; // Orientation field
+    std::vector<MatrixXd> mO; // Position field
     std::vector<VectorXi> mToLower;
     std::vector<MatrixXi> mToUpper;  // mToUpper[h](i, j) \in V; i \in [0, 2); j \in V
     std::vector<MatrixXd> mS;

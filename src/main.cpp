@@ -3,6 +3,11 @@
 #include "optimizer.hpp"
 #include "parametrizer.hpp"
 #include <stdlib.h>
+#include <iostream>
+#include <fstream>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 #ifdef WITH_CUDA
 #include <cuda_runtime.h>
@@ -19,15 +24,23 @@ int main(int argc, char** argv) {
     cudaFree(0);
 #endif
     int t1, t2;
-    std::string input_obj, output_obj;
+    std::string input_obj, output_obj, directory, filename, extension;
     int faces = -1;
+    
     for (int i = 0; i < argc; ++i) {
         if (strcmp(argv[i], "-f") == 0) {
             sscanf(argv[i + 1], "%d", &faces);
+
         } else if (strcmp(argv[i], "-i") == 0) {
             input_obj = argv[i + 1];
+            fs::path file_path(input_obj);
+            directory = file_path.parent_path().string();
+            filename = file_path.stem().string();
+            extension = file_path.extension().string();
+            
         } else if (strcmp(argv[i], "-o") == 0) {
             output_obj = argv[i + 1];
+            
         } else if (strcmp(argv[i], "-sharp") == 0) {
             field.flag_preserve_sharp = 1;
         } else if (strcmp(argv[i], "-boundary") == 0) {
@@ -42,9 +55,16 @@ int main(int argc, char** argv) {
             field.hierarchy.rng_seed = atoi(argv[i + 1]);
         }
     }
+
+    output_obj = directory + "/" + filename + "_quad_quadriflow_" + std::to_string(faces) + extension;
+
     printf("%d %s %s\n", faces, input_obj.c_str(), output_obj.c_str());
     if (input_obj.size() >= 1) {
-        field.Load(input_obj.c_str());
+        field.Load(input_obj.c_str()); // Load mesh and normalize
+        std::cout << "Extract vertices - " << field.V.rows() << " " << field.V.cols() << std::endl;
+        std::cout << "Extract faces - " << field.F.rows() << " " << field.F.cols() << std::endl;
+
+
     } else {
         assert(0);
         // field.Load((std::string(DATA_PATH) + "/fertility.obj").c_str());
@@ -105,23 +125,124 @@ int main(int argc, char** argv) {
     t1 = GetCurrentTime64();
     Optimizer::optimize_positions(field.hierarchy, field.flag_adaptive_scale);
 
+    printf("Rows and cols for faces %d, %d \n", field.hierarchy.mF.rows(), field.hierarchy.mF.cols() );
+    printf("Rows and cols for vertices %d, %d \n", field.hierarchy.mV[0].rows(), field.hierarchy.mV[0].cols());
+    printf("Rows and cols for orientation field %d, %d \n", field.hierarchy.mQ[0].rows(), field.hierarchy.mQ[0].cols());
+    printf("Rows and cols for position field %d, %d \n", field.hierarchy.mO[0].rows(), field.hierarchy.mO[0].cols());
+
     field.ComputePositionSingularities();
     t2 = GetCurrentTime64();
     printf("Use %lf seconds\n", (t2 - t1) * 1e-3);
     t1 = GetCurrentTime64();
     printf("Solve index map...\n");
+
+    std::cout << field.V.rows() << " " << field.V.cols() << std::endl;
+    std::cout << field.F.rows() << " " << field.F.cols() << std::endl;
+
     field.ComputeIndexMap();
+
+    std::cout << field.V.rows() << " " << field.V.cols() << std::endl;
+    std::cout << field.F.rows() << " " << field.F.cols() << std::endl;
+
     t2 = GetCurrentTime64();
     printf("Indexmap Use %lf seconds\n", (t2 - t1) * 1e-3);
-    printf("Writing the file...\n");
+    
+    printf("Rows and cols for faces %d, %d \n", field.hierarchy.mF.rows(), field.hierarchy.mF.cols());
+    printf("Rows and cols for vertices %d, %d \n", field.hierarchy.mV[0].rows(), field.hierarchy.mV[0].cols());
+    printf("Rows and cols for orientation field %d, %d \n", field.hierarchy.mQ[0].rows(), field.hierarchy.mQ[0].cols());
+    printf("Rows and cols for position field %d, %d \n", field.hierarchy.mO[0].rows(), field.hierarchy.mO[0].cols());
 
+    printf("Rows and cols for compact position field %d %d, %d \n", field.O_compact.size(), field.O_compact[0].rows(), field.O_compact[0].cols());
+    printf("Rows and cols for compact faces %d %d, %d \n", field.F_compact.size(), field.F_compact[0].rows(), field.F_compact[0].cols());
+    printf("Rows and cols for Vset %d %d \n", field.Vset.size(), field.Vset[0].size());
+
+
+    std::cout << field.V.rows() << " " << field.V.cols() << std::endl;
+    std::cout << field.F.rows() << " " << field.F.cols() << std::endl;
+
+
+    /////////////////////////////////////// TESTING ////////////////////////////////////////////
+    //int index = 13;
+    //Eigen::Vector3d positionFieldSample(0, 0, 0);
+
+    //for (int i = 0; i < field.Vset[index].size(); i++) {
+    //    positionFieldSample += field.hierarchy.mO[0].col(field.Vset[index][i]);
+    //    //positionFieldSample += hierarchy.mO[0].col(Vset[index][i]);
+
+    //}
+    //positionFieldSample /= field.Vset[index].size();
+
+    //std::cout << "Vset verification - " << field.O_compact[index].transpose() << "       " << positionFieldSample.transpose() << std::endl;
+    /////////////////////////////////////// TESTING ////////////////////////////////////////////
+
+    // Export fine to coarse mappings as a CSV file
+    std::ofstream file(directory + "/" + filename + "_quad_quadriflow_mappings_" + std::to_string(faces) + ".csv");
+    for (const auto& row : field.Vset) {
+        for (size_t i = 0; i < row.size(); ++i) {
+            file << row[i];
+            if (i != row.size() - 1) file << ",";
+        }
+        file << "\n";
+    }
+    file.close();
+    std::cout << "Successfully written mappings" << std::endl;
+
+    std::cout << field.V.rows() << " " << field.V.cols() << std::endl;
+    std::cout << field.F.rows() << " " << field.F.cols() << std::endl;
+
+
+    printf("Writing the quad obj...\n");
     if (output_obj.size() < 1) {
         assert(0);
         // field.OutputMesh((std::string(DATA_PATH) + "/result.obj").c_str());
     } else {
         field.OutputMesh(output_obj.c_str());
+
+        // Subdivided Input Mesh
+        //std::ofstream os(directory + "/" + filename + "_tri_quadriflow" + extension);
+        //for (int i = 0; i < field.hierarchy.mV[0].cols(); ++i) { // Vertices
+        //    auto t = field.hierarchy.mV[0].col(i) * field.normalize_scale + field.normalize_offset;
+        //    os << "v " << t[0] << " " << t[1] << " " << t[2] << "\n";
+        //}
+        //for (int i = 0; i < field.hierarchy.mF.cols(); ++i) { // Faces
+        //    os << "f " << field.hierarchy.mF.col(i)[0] + 1 << " " << field.hierarchy.mF.col(i)[1] + 1
+        //        << " " << field.hierarchy.mF.col(i)[2] + 1 /*<< " " << field.F.col(i)[3] + 1*/
+        //        << "\n";
+        //}
+        //os.close();
+
+        //
+
+        std::ofstream os(directory + "/" + filename + "_tri_quadriflow_" + std::to_string(faces) + extension);
+
+        // Write vertices
+        for (int i = 0; i < field.hierarchy.mV[0].cols(); ++i) {
+            auto t = field.hierarchy.mV[0].col(i) * field.normalize_scale + field.normalize_offset;
+            os << "v " << t[0] << " " << t[1] << " " << t[2] << "\n";
+        }
+
+        // Write vertex normals
+        for (int i = 0; i < field.hierarchy.mN[0].cols(); ++i) {
+            auto n = field.hierarchy.mN[0].col(i);  // assume already normalized
+            os << "vn " << n[0] << " " << n[1] << " " << n[2] << "\n";
+        }
+
+        // Write faces, referencing normals
+        for (int i = 0; i < field.hierarchy.mF.cols(); ++i) {
+            os << "f ";
+            for (int j = 0; j < 3; ++j) {
+                int vi = field.hierarchy.mF.col(i)[j] + 1;  // OBJ is 1-based
+                os << vi << "//" << vi << " ";
+            }
+            os << "\n";
+        }
+
+        os.close();
+
     }
     printf("finish...\n");
     //	field.LoopFace(2);
+
+
     return 0;
 }

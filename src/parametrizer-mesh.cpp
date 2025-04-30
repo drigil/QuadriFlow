@@ -7,6 +7,8 @@
 #include "subdivide.hpp"
 #include "dedge.hpp"
 #include <queue>
+#include <iostream>
+
 
 namespace qflow {
 
@@ -45,6 +47,7 @@ void Parametrizer::Load(const char* filename) {
 }
 
 void Parametrizer::Initialize(int faces) {
+    
     ComputeMeshStatus();
     //ComputeCurvature(V, F, rho);
     rho.resize(V.cols(), 1);
@@ -66,9 +69,10 @@ void Parametrizer::Initialize(int faces) {
 #endif
 
     if (target_len < max_edge_length) {
-        while (!compute_direct_graph(V, F, V2E, E2E, boundary, nonManifold))
-            ;
-        subdivide(F, V, rho, V2E, E2E, boundary, nonManifold, target_len);
+        while (!compute_direct_graph(V, F, V2E, E2E, boundary, nonManifold)) {
+            subdivide(F, V, rho, V2E, E2E, boundary, nonManifold, target_len);
+            std::cout << "Subdivision has occurred" << std::endl;
+        }
     }
     
     while (!compute_direct_graph(V, F, V2E, E2E, boundary, nonManifold))
@@ -89,16 +93,20 @@ void Parametrizer::Initialize(int faces) {
     ComputeSmoothNormal();
     ComputeVertexArea();
     
+
+    
     if (flag_adaptive_scale)
         ComputeInverseAffine();
     
 #ifdef LOG_OUTPUT
     printf("V: %d F: %d\n", (int)V.cols(), (int)F.cols());
 #endif
+    
     hierarchy.mA[0] = std::move(A);
     hierarchy.mAdj[0] = std::move(adj);
     hierarchy.mN[0] = std::move(N);
     hierarchy.mV[0] = std::move(V);
+    
     hierarchy.mE2E = std::move(E2E);
     hierarchy.mF = std::move(F);
     hierarchy.Initialize(scale, flag_adaptive_scale);
@@ -599,17 +607,33 @@ void Parametrizer::FixValence()
 }
 
 void Parametrizer::OutputMesh(const char* obj_name) {
+
     std::ofstream os(obj_name);
+
+    // Write vertices
     for (int i = 0; i < O_compact.size(); ++i) {
         auto t = O_compact[i] * this->normalize_scale + this->normalize_offset;
         os << "v " << t[0] << " " << t[1] << " " << t[2] << "\n";
     }
-    for (int i = 0; i < F_compact.size(); ++i) {
-        os << "f " << F_compact[i][0]+1 << " " << F_compact[i][1]+1
-        << " " << F_compact[i][2]+1 << " " << F_compact[i][3]+1
-        << "\n";
+
+    // Write vertex normals
+    for (int i = 0; i < N_compact.size(); ++i) {
+        const auto& n = N_compact[i];  // assume normalized
+        os << "vn " << n[0] << " " << n[1] << " " << n[2] << "\n";
     }
+
+    // Write faces (with normal indices)
+    for (int i = 0; i < F_compact.size(); ++i) {
+        os << "f ";
+        for (int j = 0; j < 4; ++j) {
+            int vi = F_compact[i][j] + 1;
+            os << vi << "//" << vi << " ";
+        }
+        os << "\n";
+    }
+
     os.close();
+
 }
 
 } // namespace qflow

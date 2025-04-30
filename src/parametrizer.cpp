@@ -20,12 +20,12 @@ namespace qflow {
 
 void Parametrizer::ComputeIndexMap(int with_scale) {
     // build edge info
-    auto& V = hierarchy.mV[0];
-    auto& F = hierarchy.mF;
-    auto& Q = hierarchy.mQ[0];
-    auto& N = hierarchy.mN[0];
-    auto& O = hierarchy.mO[0];
-    auto& S = hierarchy.mS[0];
+    auto& V = hierarchy.mV[0]; // Vertices
+    auto& F = hierarchy.mF; // Faces
+    auto& Q = hierarchy.mQ[0]; // Orientation Field
+    auto& N = hierarchy.mN[0]; // Normals
+    auto& O = hierarchy.mO[0]; // Position Field
+    auto& S = hierarchy.mS[0]; // ?
     // ComputeOrientationSingularities();
 
     BuildEdgeInfo();
@@ -33,6 +33,7 @@ void Parametrizer::ComputeIndexMap(int with_scale) {
     if (flag_preserve_sharp) {
         //        ComputeSharpO();
     }
+
     for (int i = 0; i < sharp_edges.size(); ++i) {
         if (sharp_edges[i]) {
             int e = face_edgeIds[i / 3][i % 3];
@@ -80,9 +81,22 @@ void Parametrizer::ComputeIndexMap(int with_scale) {
 #ifdef LOG_OUTPUT
     printf("subdivide...\n");
 #endif
+    printf("Before subdivide_edgeDiff \n");
+    printf("Rows and cols for faces %d, %d \n", hierarchy.mF.rows(), hierarchy.mF.cols());
+    printf("Rows and cols for vertices %d, %d \n", hierarchy.mV[0].rows(), hierarchy.mV[0].cols());
+    printf("Rows and cols for orientation field %d, %d \n", hierarchy.mQ[0].rows(), hierarchy.mQ[0].cols());
+    printf("Rows and cols for position field %d, %d \n", hierarchy.mO[0].rows(), hierarchy.mO[0].cols());
+
     subdivide_edgeDiff(F, V, N, Q, O, &hierarchy.mS[0], V2E, hierarchy.mE2E, boundary, nonManifold,
                        edge_diff, edge_values, face_edgeOrients, face_edgeIds, sharp_edges,
                        singularities, 1);
+
+    printf("After subdivide_edgeDiff \n");
+    printf("Rows and cols for faces %d, %d \n", hierarchy.mF.rows(), hierarchy.mF.cols());
+    printf("Rows and cols for vertices %d, %d \n", hierarchy.mV[0].rows(), hierarchy.mV[0].cols());
+    printf("Rows and cols for orientation field %d, %d \n", hierarchy.mQ[0].rows(), hierarchy.mQ[0].cols());
+    printf("Rows and cols for position field %d, %d \n", hierarchy.mO[0].rows(), hierarchy.mO[0].cols());
+
 
     allow_changes.clear();
     allow_changes.resize(edge_diff.size() * 2, 1);
@@ -117,15 +131,72 @@ void Parametrizer::ComputeIndexMap(int with_scale) {
         }
     }
 
+    printf("Before Positions Sharp \n");
+    printf("Rows and cols for faces %d, %d \n", hierarchy.mF.rows(), hierarchy.mF.cols());
+    printf("Rows and cols for vertices %d, %d \n", hierarchy.mV[0].rows(), hierarchy.mV[0].cols());
+    printf("Rows and cols for orientation field %d, %d \n", hierarchy.mQ[0].rows(), hierarchy.mQ[0].cols());
+    printf("Rows and cols for position field %d, %d \n", hierarchy.mO[0].rows(), hierarchy.mO[0].cols());
+
+
     Optimizer::optimize_positions_sharp(hierarchy, edge_values, edge_diff, sharp_edges,
                                         sharp_vertices, sharp_constraints, with_scale);
 
     Optimizer::optimize_positions_fixed(hierarchy, edge_values, edge_diff, sharp_vertices,
                                         sharp_constraints, flag_adaptive_scale);
 
+    printf("Before Advanced Extract Quad \n");
+    printf("Rows and cols for faces %d, %d \n", hierarchy.mF.rows(), hierarchy.mF.cols());
+    printf("Rows and cols for vertices %d, %d \n", hierarchy.mV[0].rows(), hierarchy.mV[0].cols());
+    printf("Rows and cols for orientation field %d, %d \n", hierarchy.mQ[0].rows(), hierarchy.mQ[0].cols());
+    printf("Rows and cols for position field %d, %d \n", hierarchy.mO[0].rows(), hierarchy.mO[0].cols());
+
     AdvancedExtractQuad();
+    printf("After Advanced Extract Quad \n");
+    printf("Rows and cols for faces %d, %d \n", hierarchy.mF.rows(), hierarchy.mF.cols());
+    printf("Rows and cols for vertices %d, %d \n", hierarchy.mV[0].rows(), hierarchy.mV[0].cols());
+    printf("Rows and cols for orientation field %d, %d \n", hierarchy.mQ[0].rows(), hierarchy.mQ[0].cols());
+    printf("Rows and cols for position field %d, %d \n", hierarchy.mO[0].rows(), hierarchy.mO[0].cols());
+
+    printf("Rows and cols for compact position field %d %d, %d \n", O_compact.size(), O_compact[0].rows(), O_compact[0].cols());
+    printf("Rows and cols for compact faces %d %d, %d \n", F_compact.size(), F_compact[0].rows(), F_compact[0].cols());
+    printf("Rows and cols for Vset %d %d \n", Vset.size(), Vset[0].size());
+
+    // Export fine to coarse mappings as a CSV file
+    std::ofstream file("quad_quadriflow_mappings.csv");
+    for (const auto& row : Vset) {
+        for (size_t i = 0; i < row.size(); ++i) {
+            file << row[i];
+            if (i != row.size() - 1) file << ",";
+        }
+        file << "\n";
+    }
+    file.close();
+    std::cout << "Successfully written mappings" << std::endl;
+    // std::exit(0);
 
     FixValence();
+    printf("After Fix Valence \n");
+    printf("Rows and cols for compact position field %d %d, %d \n", O_compact.size(), O_compact[0].rows(), O_compact[0].cols());
+    printf("Rows and cols for compact faces %d %d, %d \n", F_compact.size(), F_compact[0].rows(), F_compact[0].cols());
+    printf("Rows and cols for Vset %d %d \n", Vset.size(), Vset[0].size());
+
+
+
+    /////////////////////////////////////// TESTING ////////////////////////////////////////////
+    //int index = 13;
+    //Eigen::Vector3d positionFieldSample(0, 0, 0);
+
+    //for (int i = 0; i < Vset[index].size(); i++) {
+    //    positionFieldSample += O.col(Vset[index][i]);
+    //    //positionFieldSample += hierarchy.mO[0].col(Vset[index][i]);
+
+    //}
+    //positionFieldSample /= Vset[index].size();
+
+    //std::cout << "Vset verification - " << O_compact[index].transpose() << "       " << positionFieldSample.transpose() << std::endl;
+
+    /////////////////////////////////////// TESTING ////////////////////////////////////////////
+
 
     std::vector<int> sharp_o(O_compact.size(), 0);
     std::map<int, std::pair<Vector3d, Vector3d>> compact_sharp_constraints;

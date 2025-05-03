@@ -1,3 +1,7 @@
+#ifdef WITH_CUDA
+#include <cuda_runtime.h>
+#endif
+
 #include "config.hpp"
 #include "field-math.hpp"
 #include "optimizer.hpp"
@@ -6,13 +10,9 @@
 #include <iostream>
 #include <fstream>
 #include <filesystem>
+#include <nlohmann/json.hpp>
 
 namespace fs = std::filesystem;
-
-#ifdef WITH_CUDA
-#include <cuda_runtime.h>
-#endif
-
 using namespace qflow;
 
 Parametrizer field;
@@ -176,7 +176,7 @@ int main(int argc, char** argv) {
     /////////////////////////////////////// TESTING ////////////////////////////////////////////
 
     // Export fine to coarse mappings as a CSV file
-    std::ofstream file(directory + "/" + filename + "_quad_quadriflow_mappings_" + std::to_string(faces) + ".csv");
+   /* std::ofstream file(directory + "/" + filename + "_quad_quadriflow_mappings_" + std::to_string(faces) + ".csv");
     for (const auto& row : field.Vset) {
         for (size_t i = 0; i < row.size(); ++i) {
             file << row[i];
@@ -185,7 +185,17 @@ int main(int argc, char** argv) {
         file << "\n";
     }
     file.close();
-    std::cout << "Successfully written mappings" << std::endl;
+    std::cout << "Successfully written mappings" << std::endl;*/
+
+    // Export as a json file
+    // Create JSON and directly push the rows into it
+    nlohmann::json json_output = field.Vset;
+
+    // Write to file
+    std::ofstream(directory + "/" + filename + "_quad_quadriflow_mappings_" + std::to_string(faces) + ".json")
+        << json_output.dump(4); // Pretty print with indentation
+
+    std::cout << "Successfully written mappings to JSON" << std::endl;
 
     std::cout << field.V.rows() << " " << field.V.cols() << std::endl;
     std::cout << field.F.rows() << " " << field.F.cols() << std::endl;

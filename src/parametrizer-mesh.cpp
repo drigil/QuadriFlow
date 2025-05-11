@@ -612,7 +612,7 @@ void Parametrizer::OutputMesh(const char* obj_name) {
 
     // Write vertices
     for (int i = 0; i < O_compact.size(); ++i) {
-        auto t = O_compact[i] * this->normalize_scale + this->normalize_offset;
+        auto t = O_compact[i]; // * this->normalize_scale + this->normalize_offset;
         os << "v " << t[0] << " " << t[1] << " " << t[2] << "\n";
     }
 

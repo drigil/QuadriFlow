@@ -227,7 +227,7 @@ int main(int argc, char** argv) {
 
         // Write vertices
         for (int i = 0; i < field.hierarchy.mV[0].cols(); ++i) {
-            auto t = field.hierarchy.mV[0].col(i) * field.normalize_scale + field.normalize_offset;
+            auto t = field.hierarchy.mV[0].col(i); // * field.normalize_scale + field.normalize_offset;
             os << "v " << t[0] << " " << t[1] << " " << t[2] << "\n";
         }
 
